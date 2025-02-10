@@ -2,6 +2,7 @@ from update_by_siasam_utils import *
 import pandas as pd
 import networkx as nx
 import copy
+import os
 
 # Leer archivo que va a correlacionar los nombres de las plantas en el SIASAM con el SDDP
 print('Cargando correspondencia de centrales...')
@@ -130,25 +131,26 @@ for unit in generator_units:
     resultsSoliciations.addSolicitations(unit.result_soliciations)
 resultsSoliciations.saveSolicitations('optmcfg.csv')
 
-precedence_constraints = PrecedenceConstraints()
-precedence_constraints.load('catalogo_precedencia.csv')
-for precedence_constraint in precedence_constraints.constraints:
-    for i in range(len(precedence_constraint.solicitation_names) - 1, -1, -1):
-        if precedence_constraint.solicitation_names[i] in [erased_solicitation.solicitation_name for erased_solicitation in erased_solicitations]:
-            if i == 0 and len(precedence_constraint.solicitation_names) > 1:
-                precedence_constraint.min_delays[i + 1] = 0
-                precedence_constraint.max_delays[i + 1] = 0
-            elif i < len(precedence_constraint.solicitation_names) - 1:
-                mean_delay_1 = (precedence_constraint.min_delays[i] + precedence_constraint.max_delays[i]) / 2
-                mean_delay_2 = (precedence_constraint.min_delays[i + 1] + precedence_constraint.max_delays[i + 1]) / 2
-                new_mean_delay = mean_delay_1 + mean_delay_2
-                delta_delay = (precedence_constraint.max_delays[i] - precedence_constraint.min_delays[i]) / 2
-                precedence_constraint.min_delays[i + 1] = int(new_mean_delay - delta_delay)
-                precedence_constraint.max_delays[i + 1] = int(new_mean_delay + delta_delay)
-            del precedence_constraint.solicitation_names[i]
-            del precedence_constraint.min_delays[i]
-            del precedence_constraint.max_delays[i]
-precedence_constraints.save('optmprec.csv')
+if os.path.exists('catalogo_precedencia.csv'):
+    precedence_constraints = PrecedenceConstraints()
+    precedence_constraints.load('catalogo_precedencia.csv')
+    for precedence_constraint in precedence_constraints.constraints:
+        for i in range(len(precedence_constraint.solicitation_names) - 1, -1, -1):
+            if precedence_constraint.solicitation_names[i] in [erased_solicitation.solicitation_name for erased_solicitation in erased_solicitations]:
+                if i == 0 and len(precedence_constraint.solicitation_names) > 1:
+                    precedence_constraint.min_delays[i + 1] = 0
+                    precedence_constraint.max_delays[i + 1] = 0
+                elif i < len(precedence_constraint.solicitation_names) - 1:
+                    mean_delay_1 = (precedence_constraint.min_delays[i] + precedence_constraint.max_delays[i]) / 2
+                    mean_delay_2 = (precedence_constraint.min_delays[i + 1] + precedence_constraint.max_delays[i + 1]) / 2
+                    new_mean_delay = mean_delay_1 + mean_delay_2
+                    delta_delay = (precedence_constraint.max_delays[i] - precedence_constraint.min_delays[i]) / 2
+                    precedence_constraint.min_delays[i + 1] = int(new_mean_delay - delta_delay)
+                    precedence_constraint.max_delays[i + 1] = int(new_mean_delay + delta_delay)
+                del precedence_constraint.solicitation_names[i]
+                del precedence_constraint.min_delays[i]
+                del precedence_constraint.max_delays[i]
+    precedence_constraints.save('optmprec.csv')
 
 print('Proceso finalizado.')
 
