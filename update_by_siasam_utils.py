@@ -1,0 +1,372 @@
+import datetime
+import pandas as pd
+
+siasam_name_columns = {
+    'Code':0,
+    'Name':1,
+    'Unit':2,
+    'Tech':3,
+    'SiasamName':5,
+}
+
+siasam_columns = {
+    'SiasamName':0,
+    'EquipType':1,
+    'SiasamCode':10,
+    'StartDate':2,
+    'EndDate':3,
+    'Duration':4,
+}
+
+solicitudes_minimas_columns = {
+    'SolicitationName':0,
+    'PlantCode':1,
+    'PlantTech':2,
+    'PlantName':3,
+    'UnitCode':4,
+    'MinDateDay':5,
+    'MinDateMonth':6,
+    'MinDateYear':7,
+    'MaxDateDay':8,
+    'MaxDateMonth':9,
+    'MaxDateYear':10,
+    'Duration':11,
+}
+
+sddp_tech_codes = {
+    'Termica':0,
+    'Hidro mayor':1,
+    'Hidro menor':6,
+}
+
+def calculate_intersection_days(start1, end1, start2, end2):
+    intersection_start = max(start1, start2)
+    intersection_end = min(end1, end2)
+    delta = (intersection_end - intersection_start).days + 1
+    return max(0, delta)
+
+def round_hour_to_date(date_string):
+    return datetime.datetime.strptime(date_string, "%m/%d/%Y  %H:%M").date()
+
+def loadGeneratorUnits(siasam_name_file):
+    generator_units = []
+    df_siasam_name = pd.read_csv(siasam_name_file)
+    for index, row in df_siasam_name.iterrows():
+        unit_plant_name = row[siasam_name_columns['Name']]
+        unit_plant_code = row[siasam_name_columns['Code']]
+        unit_plant_type = row[siasam_name_columns['Tech']]
+        unit_siasam_name = row[siasam_name_columns['SiasamName']]
+        unit_num = row[siasam_name_columns['Unit']]
+        unit_is_defined = False
+        for unit_i in generator_units:
+            if (
+                unit_i.plant_type == sddp_tech_codes[unit_plant_type]
+                and unit_i.plant_code == unit_plant_code
+                and unit_i.unit == unit_num
+            ):
+                unit = unit_i
+                unit_is_defined = True
+                break
+        if not unit_is_defined:
+            unit = GeneratorUnit(1, unit_plant_name, unit_plant_code, sddp_tech_codes[unit_plant_type], unit_num)
+            generator_units.append(unit)
+        unit.addSiasamName(unit_siasam_name)
+    return generator_units
+
+class IrregularityManager:
+    def __init__(self, tol_starting_date = 2, tol_duration = 2):
+        self.tol_starting_date = tol_starting_date
+        self.tol_duration = tol_duration
+        self.irregularities = []
+
+    def addIrregularity(self, solicitation1, solicitation2):
+        self.irregularities.append([solicitation1, solicitation2])
+
+    def saveReport(self, output_file_path):
+        with open(output_file_path, 'w') as f:
+            f.write("  =====================  INFORME DE COMPATIBILIDAD DE SOLICITUDES SIASAM  =====================\n\n")
+            f.write(" Parametros para identificar solicitudes duplicadas:\n")
+            f.write(f"   Tolerancia de similaridad de fecha de inicio: {self.tol_starting_date} [dias]\n")
+            f.write(f"   Tolerancia de similaridad de duracion: {self.tol_duration} [dias]\n\n")
+            if len(self.irregularities) > 0:
+                f.write(f" Las siguientes solicitudes se consideraron extensiones el uno del otro (total {len(self.irregularities)}):\n\n")
+                for i in range(len(self.irregularities)):
+                    f.write(f"  * Planta {self.irregularities[i][0].plant_name}, unidad {self.irregularities[i][1].plant_unit}:\n")
+                    f.write(f"     - Solicitud {self.irregularities[i][0].solicitation_name}\n")
+                    f.write(f"         Fecha de inicio: {self.irregularities[i][0].preference_date.strftime('%d/%m/%Y')}\n")
+                    f.write(f"         Duracion: {self.irregularities[i][0].duration}\n")
+                    f.write(f"     - Solicitud {self.irregularities[i][1].solicitation_name}\n")
+                    f.write(f"         Fecha de inicio: {self.irregularities[i][1].preference_date.strftime('%d/%m/%Y')}\n")
+                    f.write(f"         Duracion: {self.irregularities[i][1].duration}\n\n")
+            else:
+                f.write(" No se encontraron solicitudes extendidas.")
+
+class GeneratorUnit:
+    def __init__(self, plant_system, plant_name, plant_code, plant_type, unit):
+        self.plant_system = plant_system
+        self.plant_name = plant_name
+        self.plant_code = plant_code
+        self.plant_type = plant_type
+        self.unit = unit
+        self.siasam_names = []
+        self.siasam_solicitations = []
+        self.original_solicitations = []
+        self.result_soliciations = []
+        self.irregularity_manager = None
+
+    def setIrregularityManager(self, irregularity_manager):
+        self.irregularity_manager = irregularity_manager
+
+    def addSiasamName(self, siasam_name):
+        self.siasam_names.append(siasam_name)
+
+    def hasSiasamName(self, siasam_name):
+        return siasam_name in self.siasam_names
+
+    def addSiasamSolicitation(self, solicitation):
+        for siasamSol in self.siasam_solicitations:
+            if (
+                abs((siasamSol.preference_date - solicitation.preference_date).days) <= self.irregularity_manager.tol_starting_date
+                and abs(siasamSol.duration - solicitation.duration) <= self.irregularity_manager.tol_duration
+                and calculate_intersection_days(
+                    siasamSol.preference_date,
+                    siasamSol.preference_date + datetime.timedelta(days=siasamSol.duration - 1),
+                    solicitation.preference_date,
+                    solicitation.preference_date + datetime.timedelta(days=solicitation.duration - 1)
+                    ) > 0
+            ):
+                return
+            elif (
+                calculate_intersection_days(
+                    siasamSol.preference_date,
+                    siasamSol.preference_date + datetime.timedelta(days=siasamSol.duration - 1),
+                    solicitation.preference_date,
+                    solicitation.preference_date + datetime.timedelta(days=solicitation.duration - 1)
+                    ) > 0
+            ):
+                self.irregularity_manager.addIrregularity(siasamSol, solicitation)
+        self.siasam_solicitations.append(solicitation)
+
+    def addOriginalSolicitation(self, solicitation):
+        self.original_solicitations.append(solicitation)
+
+    def addResultSolicitation(self, solicitation):
+        self.result_soliciations.append(solicitation)
+
+    def __str__(self):
+        out = "Plant: " + self.plant_name + "\n"
+        out += "    Code: " + str(self.plant_code) + "\n"
+        out += "    Type: " + str(self.plant_type) + "\n"
+        out += "    System: " + str(self.plant_system) + "\n"
+        out += "    Unit: " + str(self.unit) + "\n"
+        out += "    Siasam Names: " + str(self.siasam_names) + "\n"
+        if len(self.original_solicitations) > 0:
+            out += "    Original Solicitations: \n"
+            for origSol in self.original_solicitations:
+                out += "      " + str(origSol.solicitation_name) + " : " + str(origSol.duration) + " days " + origSol.min_date.strftime("%m/%Y") + " - " + origSol.max_date.strftime("%m/%Y") + " node " + str(origSol.node_code) + "\n"
+        if len(self.siasam_solicitations) > 0:
+            out += "    Siasam Solicitations: \n"
+            for siasamSol in self.siasam_solicitations:
+                out += "      " + str(siasamSol.solicitation_name) + " : " + str(siasamSol.duration) + " days " + siasamSol.min_date.strftime("%m/%Y") + " - " + siasamSol.max_date.strftime("%m/%Y") + " node " + str(siasamSol.node_code) + "\n"
+        if len(self.result_soliciations) > 0:
+            out += "    Result Solicitations: \n"
+            for resultSol in self.result_soliciations:
+                out += "      " + str(resultSol.solicitation_name) + " : " + str(resultSol.duration) + " days " + resultSol.min_date.strftime("%m/%Y") + " - " + resultSol.max_date.strftime("%m/%Y") + " node " + str(resultSol.node_code) + "\n"
+        return out
+
+class MaintenanceSolicitations:
+    def __init__(self, load_from_file=None):
+        self.solicitations = {}
+        self.header = """$version=2,,,,,,,,,,,,,,,,,
+!Sname,code   ,type      ,system,Pname       ,Unit,min_date,min_date,min_date,max_date,max_date,max_date,Duration, Priority, Preference Date,Preference Date,Preference Date,Fixed Date
+!       ,       ,0=thermal ,          ,            ,,dd,mm      ,yy      ,dd,mm      ,yy      ,days,,dd,mm      ,yy,
+!       ,       ,1=hidro   ,          ,  ,,,        ,        ,,        ,        ,,,,,,"""
+        if load_from_file is not None:
+            self.loadSolicitations(load_from_file)
+
+    def saveSolicitations(self, output_file_path):
+        with open(output_file_path, 'w') as f:
+            f.write(self.header)
+            for key in self.solicitations:
+                solicitation = self.solicitations[key]
+                text_line = f"\n{solicitation.solicitation_name},"
+                text_line += f"{solicitation.plant_code},"
+                text_line += f"{solicitation.plant_type},"
+                text_line += f"{solicitation.system_code},"
+                text_line += f"{solicitation.plant_name},"
+                text_line += f"{solicitation.plant_unit},"
+                text_line += f"{solicitation.min_date.day},"
+                text_line += f"{solicitation.min_date.month},"
+                text_line += f"{solicitation.min_date.year},"
+                text_line += f"{solicitation.max_date.day},"
+                text_line += f"{solicitation.max_date.month},"
+                text_line += f"{solicitation.max_date.year},"
+                text_line += f"{solicitation.duration},"
+                text_line += f"{solicitation.priority},"
+                text_line += f"{solicitation.preference_date.day}," if solicitation.preference_date is not None else "0,"
+                text_line += f"{solicitation.preference_date.month}," if solicitation.preference_date is not None else "0,"
+                text_line += f"{solicitation.preference_date.year}," if solicitation.preference_date is not None else "0,"
+                text_line += f"{solicitation.fixed_date}"
+                f.write(text_line)
+
+    def loadSolicitations(self, input_file_path):
+        # Read the CSV file, skipping the first two header lines
+        df = pd.read_csv(input_file_path)
+
+        # Iterate through the rows and recreate SolicitationInstance objects
+        for _, row in df.iterrows():
+            # Parse dates using datetime
+            min_date = datetime.datetime(
+                year=int(row[solicitudes_minimas_columns["MinDateYear"]]),
+                month=int(row[solicitudes_minimas_columns["MinDateMonth"]]),
+                day=int(row[solicitudes_minimas_columns["MinDateDay"]])
+            )
+            max_date = datetime.datetime(
+                year=int(row[solicitudes_minimas_columns["MaxDateYear"]]),
+                month=int(row[solicitudes_minimas_columns["MaxDateMonth"]]),
+                day=int(row[solicitudes_minimas_columns["MaxDateDay"]])
+            )
+
+            sol = SolicitationInstance(
+                solicitation_name=row[solicitudes_minimas_columns["SolicitationName"]],
+                plant_code=row[solicitudes_minimas_columns["PlantCode"]],
+                plant_type=int(row[solicitudes_minimas_columns["PlantTech"]]),
+                system_code=1,
+                plant_name=row[solicitudes_minimas_columns["PlantName"]],
+                plant_unit=row[solicitudes_minimas_columns["UnitCode"]],
+                min_date=min_date,
+                max_date=max_date,
+                duration=int(row[solicitudes_minimas_columns["Duration"]]),     
+                priority=0,
+                preference_date=None,
+                fixed_date=0
+            )
+            self.addSolicitation(sol)
+
+    def addSolicitation(self, solicitation):
+        self.solicitations[solicitation.solicitation_name] = solicitation
+
+    def addSolicitations(self, solicitations):
+        for solicitation in solicitations:
+            self.addSolicitation(solicitation)
+
+    def getUnitSolicitations(self, unit):
+        unit_solicitations = []
+        for key in self.solicitations:
+            if (
+                self.solicitations[key].plant_type == unit.plant_type
+                and self.solicitations[key].plant_code == unit.plant_code
+                and self.solicitations[key].system_code == unit.plant_system
+                and self.solicitations[key].plant_unit == unit.unit
+            ):
+                unit_solicitations.append(self.solicitations[key])
+        return unit_solicitations
+    
+class SolicitationInstance:
+    def __init__(
+            self,
+            solicitation_name=None,
+            plant_code=None,
+            plant_type=None,
+            system_code=None,
+            plant_name=None,
+            plant_unit=None,
+            min_date=None,
+            max_date=None,
+            duration=None,
+            priority=0,
+            preference_date=None,
+            fixed_date=0
+            ):
+        self.solicitation_name = solicitation_name
+        self.plant_code = plant_code
+        self.plant_type = plant_type
+        self.system_code = system_code
+        self.plant_name = plant_name
+        self.plant_unit = plant_unit
+        self.duration = duration
+        self.min_date = min_date
+        self.max_date = max_date
+        self.priority = priority
+        self.preference_date = preference_date
+        self.fixed_date = fixed_date
+        self.node_code = None
+
+    def setNodeCode(self, node_code):
+        self.node_code = node_code
+
+    def getNodeCode(self):
+        return self.node_code
+
+    def __str__(self):
+        out = "Solicitation: " + self.solicitation_name + "\n"
+        out += "    Plant Code: " + str(self.plant_code) + "\n"
+        out += "    Plant Type: " + str(self.plant_type) + "\n"
+        out += "    System Code: " + str(self.system_code) + "\n"
+        out += "    Plant Name: " + self.plant_name + "\n"
+        out += "    Plant Unit: " + str(self.plant_unit) + "\n"
+        out += "    Duration: " + str(self.duration) + "\n"
+        out += "    Min Date: " + str(self.min_date) + "\n"
+        out += "    Max Date: " + str(self.max_date) + "\n"
+        out += "    Priority: " + str(self.priority) + "\n"
+        out += "    Preference Date: " + str(self.preference_date) + "\n"
+        out += "    Fixed Date: " + str(self.fixed_date) + "\n"
+        out += "    Node Code: " + str(self.node_code) + "\n"
+        return out
+    
+class AssociationConstraint:
+    def __init__(self, name):
+        self.name = name
+        self.solitations = []
+    def addSolicitation(self, solicitation):
+        self.solitations.append(solicitation)
+
+class AssociationConstraints:
+
+    def __init__(self):
+        self.constraints = []
+        self.header = "!SetName,SolicitationName"
+    def addConstraint(self, constraint):
+        self.constraints.append(constraint)
+    def save(self, output_file_path):
+        with open(output_file_path, 'w') as f:
+            f.write(self.header)
+            for constraint in self.constraints:
+                if len(constraint.solitations) > 1:
+                    for solicitation in constraint.solitations:
+                        f.write(f"\n{constraint.name},{solicitation.solicitation_name}")
+
+class PrecedenceConstraint:
+    def __init__(self, name):
+        self.name = name
+        self.solicitation_names = []
+        self.min_delays = []
+        self.max_delays = []
+    def addSolicitation(self, solicitation_name, min_delay, max_delay):
+        self.solicitation_names.append(solicitation_name)
+        self.min_delays.append(min_delay)
+        self.max_delays.append(max_delay)
+
+class PrecedenceConstraints:
+        def __init__(self):
+            self.constraints = []
+            self.header = "!PrecName,SolName,DelayMin,DelayMax"
+        def save(self, output_file_path):
+            with open(output_file_path, 'w') as f:
+                f.write(self.header)
+                for constraint in self.constraints:
+                    if len(constraint.solicitation_names) > 1:
+                        for i in range(len(constraint.solicitation_names)):
+                            f.write(f"\n{constraint.name},{constraint.solicitation_names[i]},{constraint.min_delays[i]},{constraint.max_delays[i]}")
+        def load(self, input_file_path):
+            df = pd.read_csv(input_file_path)
+            for _, row in df.iterrows():
+                located = False
+                for constraint in self.constraints:
+                    if constraint.name == row["!PrecName"]:
+                        located = True
+                        constraint.addSolicitation(row["SolName"], row["DelayMin"], row["DelayMax"])
+                if not located:
+                    constraint = PrecedenceConstraint(row["!PrecName"])
+                    constraint.addSolicitation(row["SolName"], row["DelayMin"], row["DelayMax"])
+                    self.constraints.append(constraint)
