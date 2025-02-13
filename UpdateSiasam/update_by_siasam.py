@@ -71,7 +71,8 @@ for index, row in df_siasam.iterrows():
     if isWholePlant:
         association_constraints.addConstraint(association_constraint)
 association_constraints.save('siasam_association_constraints.csv')
-irregularity_manager.saveReport('siasam_matching_report.txt')
+irregularity_manager.saveReport('siasam_matching_report')
+irregularity_manager.saveReport('siasam_irregularities_duplicates', duplicates=True)
 
 # ALGOTITMO DE ALOCACIÓN DE SOLICITUDES
 print('Optimizando alocación de solicitudes...')

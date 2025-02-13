@@ -78,28 +78,56 @@ class IrregularityManager:
         self.tol_starting_date = tol_starting_date
         self.tol_duration = tol_duration
         self.irregularities = []
+        self.irregularities_duplicates = []
 
     def addIrregularity(self, solicitation1, solicitation2):
         self.irregularities.append([solicitation1, solicitation2])
 
-    def saveReport(self, output_file_path):
-        with open(output_file_path, 'w') as f:
+    def addIrregularityDuplicate(self, solicitation1, solicitation2):
+        self.irregularities_duplicates.append([solicitation1, solicitation2])
+
+    def saveReport(self, output_file_path, duplicates=False):
+        if duplicates:
+            irregularities = self.irregularities_duplicates
+        else:
+            irregularities = self.irregularities
+        with open(output_file_path + '.txt', 'w') as f:
             f.write("  =====================  INFORME DE COMPATIBILIDAD DE SOLICITUDES SIASAM  =====================\n\n")
             f.write(" Parametros para identificar solicitudes duplicadas:\n")
             f.write(f"   Tolerancia de similaridad de fecha de inicio: {self.tol_starting_date} [dias]\n")
             f.write(f"   Tolerancia de similaridad de duracion: {self.tol_duration} [dias]\n\n")
-            if len(self.irregularities) > 0:
-                f.write(f" Las siguientes solicitudes se consideraron extensiones el uno del otro (total {len(self.irregularities)}):\n\n")
-                for i in range(len(self.irregularities)):
-                    f.write(f"  * Planta {self.irregularities[i][0].plant_name}, unidad {self.irregularities[i][1].plant_unit}:\n")
-                    f.write(f"     - Solicitud {self.irregularities[i][0].solicitation_name}\n")
-                    f.write(f"         Fecha de inicio: {self.irregularities[i][0].preference_date.strftime('%d/%m/%Y')}\n")
-                    f.write(f"         Duracion: {self.irregularities[i][0].duration}\n")
-                    f.write(f"     - Solicitud {self.irregularities[i][1].solicitation_name}\n")
-                    f.write(f"         Fecha de inicio: {self.irregularities[i][1].preference_date.strftime('%d/%m/%Y')}\n")
-                    f.write(f"         Duracion: {self.irregularities[i][1].duration}\n\n")
+            if len(irregularities) > 0:
+                f.write(f" Las siguientes solicitudes se consideraron extensiones el uno del otro (total {len(irregularities)}):\n\n")
+                for i in range(len(irregularities)):
+                    f.write(f"  * Planta {irregularities[i][0].plant_name}, unidad {irregularities[i][1].plant_unit}:\n")
+                    f.write(f"     - Solicitud {irregularities[i][0].solicitation_name}\n")
+                    f.write(f"         Fecha de inicio: {irregularities[i][0].preference_date.strftime('%d/%m/%Y')}\n")
+                    f.write(f"         Duracion: {irregularities[i][0].duration}\n")
+                    f.write(f"     - Solicitud {irregularities[i][1].solicitation_name}\n")
+                    f.write(f"         Fecha de inicio: {irregularities[i][1].preference_date.strftime('%d/%m/%Y')}\n")
+                    f.write(f"         Duracion: {irregularities[i][1].duration}\n\n")
             else:
                 f.write(" No se encontraron solicitudes extendidas.")
+        data = []
+        for i in range(len(irregularities)):
+            data.append([
+            i+1,
+            irregularities[i][0].plant_name,
+            irregularities[i][0].plant_unit,
+            irregularities[i][0].solicitation_name,
+            irregularities[i][0].preference_date.strftime('%d/%m/%Y'),
+            irregularities[i][0].duration,
+            ])
+            data.append([
+            i+1,
+            irregularities[i][1].plant_name,
+            irregularities[i][1].plant_unit,
+            irregularities[i][1].solicitation_name,
+            irregularities[i][1].preference_date.strftime('%d/%m/%Y'),
+            irregularities[i][1].duration,
+            ])
+        df = pd.DataFrame(data, columns=['Duplicate','Plant Name', 'Unit', 'Solicitation', 'Start Date', 'Duration'])
+        df.to_csv(output_file_path + '.csv', index=False)
 
 class GeneratorUnit:
     def __init__(self, plant_system, plant_name, plant_code, plant_type, unit):
@@ -135,6 +163,7 @@ class GeneratorUnit:
                     solicitation.preference_date + datetime.timedelta(days=solicitation.duration - 1)
                     ) > 0
             ):
+                self.irregularity_manager.addIrregularityDuplicate(siasamSol, solicitation)
                 return
             elif (
                 calculate_intersection_days(
