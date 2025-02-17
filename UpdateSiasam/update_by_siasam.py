@@ -132,9 +132,9 @@ for unit in generator_units:
     resultsSoliciations.addSolicitations(unit.result_soliciations)
 resultsSoliciations.saveSolicitations('optmcfg.csv')
 
-if os.path.exists('catalogo_precedencia.csv'):
+if os.path.exists('precedencia_solicitudes_minimas.csv'):
     precedence_constraints = PrecedenceConstraints()
-    precedence_constraints.load('catalogo_precedencia.csv')
+    precedence_constraints.load('precedencia_solicitudes_minimas.csv')
     for precedence_constraint in precedence_constraints.constraints:
         for i in range(len(precedence_constraint.solicitation_names) - 1, -1, -1):
             if precedence_constraint.solicitation_names[i] in [erased_solicitation.solicitation_name for erased_solicitation in erased_solicitations]:
@@ -151,7 +151,7 @@ if os.path.exists('catalogo_precedencia.csv'):
                 del precedence_constraint.solicitation_names[i]
                 del precedence_constraint.min_delays[i]
                 del precedence_constraint.max_delays[i]
-    precedence_constraints.save('optmprec.csv')
+    precedence_constraints.save('optmprec_apr.csv')
 
 print('Proceso finalizado.')
 

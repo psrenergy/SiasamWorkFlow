@@ -173,7 +173,7 @@ class PlantTechs:
 class MaintenanceSolicitations:
     def __init__(self, load_from_file=None):
         self.solicitations = {}
-        self.header = "Nombre referencia ,Codigo de la planta en el SDDP,Tipo de la central (0=Termica/1=Hidro Mayor/6=Hidro Menor),Nombre de la planta en el SDDP,Codigo de la unidad en el OptMain,Dia de la fecha minima,Mes de la fecha minima,Ano de la fecha minima,Dia de la fecha maxima,Mes de la fecha maxima,Ano de la fecha maxima,Duracion del mantenimiento"
+        self.header = "Nombre referencia,Codigo de la planta en el SDDP,Tipo de la central (0=Termica/1=Hidro Mayor/6=Hidro Menor),Nombre de la planta en el SDDP,Codigo de la unidad en el OptMain,Dia de la fecha minima,Mes de la fecha minima,Ano de la fecha minima,Dia de la fecha maxima,Mes de la fecha maxima,Ano de la fecha maxima,Duracion del mantenimiento"
         if load_from_file is not None:
             self.load_solicitations(load_from_file)
     def newSolicitation(self, solicitation_name, plant_code, plant_type, system_code, plant_name, plant_unit, min_date, max_date, duration, priority=0, preference_date=None, fixed_date=0):
@@ -209,7 +209,7 @@ class MaintenanceSolicitations:
                 text_line += f"{solicitation.max_date.day},"
                 text_line += f"{solicitation.max_date.month},"
                 text_line += f"{solicitation.max_date.year},"
-                text_line += f"{solicitation.duration},"
+                text_line += f"{solicitation.duration}"
                 f.write(text_line)
 
     def addSolicitation(self, solicitation):

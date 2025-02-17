@@ -70,7 +70,8 @@ for index, row in df_plants.iterrows():
             count_sol += 1
 
 maintenanceSolicitations.saveSolicitations('solicitudes_minimas.csv')
-precedenceConstraints.saveConstraints('catalogo_precedencia.csv')
+precedenceConstraints.saveConstraints('precedencia_solicitudes_minimas.csv')
+
 with open('faltando_catalogo.csv', 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows([[name] for name in faltando_catalogo])
