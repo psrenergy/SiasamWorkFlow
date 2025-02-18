@@ -47,7 +47,7 @@ for index, row in df_plants.iterrows():
                     system_code,
                     plant_name,
                     unit,
-                    next_date_min,
+                    ajust_date_lower(next_date_min),
                     ajust_date_upper(next_date_min + datetime.timedelta(days=catalogueRule.interval) + datetime.timedelta(days=catalogueRule.duration)),
                     catalogueRule.duration
                 )
