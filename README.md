@@ -39,7 +39,10 @@ The program generates the following output files:
 - `optmcfg.csv`: **Merged** maintenance requests.
 - `optmprec.csv`: **Merged** precedence constraints.
 - `siasam_association_constraints.csv`: **New** association constraints to append to any existing ones.
-- `siasam_matching_report.txt`: A report listing matching cases that might require special attention.
+- `siasam_irregularities_fixed_duplicates.txt`: A report listing matching cases of duplicated fixed requests.
+- `siasam_irregularities_fixed_overlap.txt`: A report listing matching cases of overlapping fixed requests.
+- `siasam_irregularities_duplicates.txt`: A report listing matching cases of duplicated requests.
+- `siasam_irregularities_overlap.txt`: A report listing matching cases of overlapping requests.
 
 ## Execution Steps
 To run any of the module, firstly ensure that Python is installed on your system. To install the required dependencies, open the command prompt, navigate to the root directory, and run:

@@ -56,11 +56,11 @@ def loadGeneratorUnits(siasam_name_file):
     generator_units = []
     df_siasam_name = pd.read_csv(siasam_name_file)
     for index, row in df_siasam_name.iterrows():
-        unit_plant_name = row[siasam_name_columns['Name']]
-        unit_plant_code = row[siasam_name_columns['Code']]
-        unit_plant_type = row[siasam_name_columns['Tech']]
-        unit_siasam_name = row[siasam_name_columns['SiasamName']]
-        unit_num = row[siasam_name_columns['Unit']]
+        unit_plant_name = row.iloc[siasam_name_columns['Name']]
+        unit_plant_code = row.iloc[siasam_name_columns['Code']]
+        unit_plant_type = row.iloc[siasam_name_columns['Tech']]
+        unit_siasam_name = row.iloc[siasam_name_columns['SiasamName']]
+        unit_num = row.iloc[siasam_name_columns['Unit']]
         unit_is_defined = False
         for unit_i in generator_units:
             if (
@@ -81,12 +81,13 @@ class IrregularityManager:
     def __init__(self, tol_starting_date = 2, tol_duration = 2):
         self.tol_starting_date = tol_starting_date
         self.tol_duration = tol_duration
-        self.irregularities = []
+        self.irregularities_overlap = []
         self.irregularities_duplicates = []
         self.irregularities_duplicates_fixed = []
+        self.irregularities_overlap_fixed = []
 
-    def addIrregularity(self, solicitation1, solicitation2):
-        self.irregularities.append([solicitation1, solicitation2])
+    def addIrregularityOverlap(self, solicitation1, solicitation2):
+        self.irregularities_overlap.append([solicitation1, solicitation2])
 
     def addIrregularityDuplicate(self, solicitation1, solicitation2):
         self.irregularities_duplicates.append([solicitation1, solicitation2])
@@ -94,13 +95,18 @@ class IrregularityManager:
     def addIrregularityDuplicateFixed(self, solicitation1, solicitation2):
         self.irregularities_duplicates_fixed.append([solicitation1, solicitation2])
 
+    def addIrregularityOverlapFixed(self, solicitation1, solicitation2):
+        self.irregularities_overlap_fixed.append([solicitation1, solicitation2])
+
     def saveReport(self, output_file_path, duplicates=False, fixed=False):
         if duplicates and not fixed:
             irregularities = self.irregularities_duplicates
         elif duplicates and fixed:
             irregularities = self.irregularities_duplicates_fixed
-        else:
-            irregularities = self.irregularities
+        elif not duplicates and not fixed:
+            irregularities = self.irregularities_overlap
+        elif not duplicates and fixed:
+            irregularities = self.irregularities_overlap_fixed
 
         with open(output_file_path + '.txt', 'w') as f:
             f.write("  =====================  INFORME DE COMPATIBILIDAD DE SOLICITUDES SIASAM  =====================\n\n")
@@ -191,7 +197,10 @@ class GeneratorUnit:
                     solicitation.preference_date + datetime.timedelta(days=solicitation.duration - 1)
                     ) > 0
             ):
-                self.irregularity_manager.addIrregularity(siasamSol, solicitation)
+                if self.siasam_solicitations[isiasamSol].fixed_date == 1:
+                    self.irregularity_manager.addIrregularityOverlapFixed(siasamSol, solicitation)
+                    return 1
+                self.irregularity_manager.addIrregularityOverlap(siasamSol, solicitation)
         self.siasam_solicitations.append(solicitation)
         return 0
 
@@ -265,47 +274,47 @@ class MaintenanceSolicitations:
         for _, row in df.iterrows():
             # Parse dates using datetime
             min_date = datetime.datetime(
-                year=int(row[solicitudes_minimas_columns["MinDateYear"]]),
-                month=int(row[solicitudes_minimas_columns["MinDateMonth"]]),
-                day=int(row[solicitudes_minimas_columns["MinDateDay"]])
+                year=int(row.iloc[solicitudes_minimas_columns["MinDateYear"]]),
+                month=int(row.iloc[solicitudes_minimas_columns["MinDateMonth"]]),
+                day=int(row.iloc[solicitudes_minimas_columns["MinDateDay"]])
             )
             max_date = datetime.datetime(
-                year=int(row[solicitudes_minimas_columns["MaxDateYear"]]),
-                month=int(row[solicitudes_minimas_columns["MaxDateMonth"]]),
-                day=int(row[solicitudes_minimas_columns["MaxDateDay"]])
+                year=int(row.iloc[solicitudes_minimas_columns["MaxDateYear"]]),
+                month=int(row.iloc[solicitudes_minimas_columns["MaxDateMonth"]]),
+                day=int(row.iloc[solicitudes_minimas_columns["MaxDateDay"]])
             )
             if not fixed:
                 sol = SolicitationInstance(
-                    solicitation_name=row[solicitudes_minimas_columns["SolicitationName"]],
-                    plant_code=row[solicitudes_minimas_columns["PlantCode"]],
-                    plant_type=int(row[solicitudes_minimas_columns["PlantTech"]]),
+                    solicitation_name=row.iloc[solicitudes_minimas_columns["SolicitationName"]],
+                    plant_code=row.iloc[solicitudes_minimas_columns["PlantCode"]],
+                    plant_type=int(row.iloc[solicitudes_minimas_columns["PlantTech"]]),
                     system_code=1,
-                    plant_name=row[solicitudes_minimas_columns["PlantName"]],
-                    plant_unit=row[solicitudes_minimas_columns["UnitCode"]],
+                    plant_name=row.iloc[solicitudes_minimas_columns["PlantName"]],
+                    plant_unit=row.iloc[solicitudes_minimas_columns["UnitCode"]],
                     min_date=min_date,
                     max_date=max_date,
-                    duration=int(row[solicitudes_minimas_columns["Duration"]]),     
+                    duration=int(row.iloc[solicitudes_minimas_columns["Duration"]]),     
                     priority=0,
                     preference_date=None,
                     fixed_date=0
                 )
             else:
                 pref_date = datetime.datetime(
-                    year=int(row[solicitudes_minimas_columns["PrefDateYear"]]),
-                    month=int(row[solicitudes_minimas_columns["PrefDateMonth"]]),
-                    day=int(row[solicitudes_minimas_columns["PrefDateDay"]])
+                    year=int(row.iloc[solicitudes_minimas_columns["PrefDateYear"]]),
+                    month=int(row.iloc[solicitudes_minimas_columns["PrefDateMonth"]]),
+                    day=int(row.iloc[solicitudes_minimas_columns["PrefDateDay"]])
                 )
                 sol = SolicitationInstance(
-                    solicitation_name=row[solicitudes_minimas_columns["SolicitationName"]],
-                    plant_code=row[solicitudes_minimas_columns["PlantCode"]],
-                    plant_type=int(row[solicitudes_minimas_columns["PlantTech"]]),
+                    solicitation_name=row.iloc[solicitudes_minimas_columns["SolicitationName"]],
+                    plant_code=row.iloc[solicitudes_minimas_columns["PlantCode"]],
+                    plant_type=int(row.iloc[solicitudes_minimas_columns["PlantTech"]]),
                     system_code=1,
-                    plant_name=row[solicitudes_minimas_columns["PlantName"]],
-                    plant_unit=row[solicitudes_minimas_columns["UnitCode"]],
+                    plant_name=row.iloc[solicitudes_minimas_columns["PlantName"]],
+                    plant_unit=row.iloc[solicitudes_minimas_columns["UnitCode"]],
                     min_date=min_date,
                     max_date=max_date,
-                    duration=int(row[solicitudes_minimas_columns["Duration"]]),     
-                    priority=int(row[solicitudes_minimas_columns["Priority"]]),
+                    duration=int(row.iloc[solicitudes_minimas_columns["Duration"]]),     
+                    priority=int(row.iloc[solicitudes_minimas_columns["Priority"]]),
                     preference_date=pref_date,
                     fixed_date=1,
                 )

@@ -34,7 +34,7 @@ for unit in generator_units:
 df_siasam_ass = pd.read_csv('siasam_associacion.csv')
 vec_siasam_ass = []
 for index, row in df_siasam_ass.iterrows():
-    vec_siasam_ass.append(row[0])
+    vec_siasam_ass.append(row.iloc[0])
 
 # Carga las solicitudes de mantenimiento del SIASAM
 print('Cargando solicitudes de mantenimiento del SIASAM...')
@@ -44,16 +44,16 @@ df_siasam = pd.read_csv('Solicitudes SIASAM 2025-2027_17-01-2025.csv')
 str_cols = df_siasam.select_dtypes(include=['object']).columns
 df_siasam[str_cols] = df_siasam[str_cols].apply(lambda col: col.str.replace(r"[^\x20-\x7E]", "", regex=True))
 for index, row in df_siasam.iterrows():
-    siasam_name = row[siasam_columns['SiasamName']]
-    siasam_code = row[siasam_columns['SiasamCode']]
-    minDate = round_hour_to_date(row[siasam_columns['StartDate']])
-    maxDate = round_hour_to_date(row[siasam_columns['EndDate']])
-    duration = row[siasam_columns['Duration']]
-    equipType = row[siasam_columns['EquipType']]
+    siasam_name = row.iloc[siasam_columns['SiasamName']]
+    siasam_code = row.iloc[siasam_columns['SiasamCode']]
+    minDate = round_hour_to_date(row.iloc[siasam_columns['StartDate']])
+    maxDate = round_hour_to_date(row.iloc[siasam_columns['EndDate']])
+    duration = row.iloc[siasam_columns['Duration']]
+    equipType = row.iloc[siasam_columns['EquipType']]
     area = siasam_code.split('-')[0]
     siasam_name = area + "-" + siasam_name
     isWholePlant = False
-    if equipType == 'CG' or row[siasam_columns['SiasamName']] in vec_siasam_ass:
+    if equipType == 'CG' or row.iloc[siasam_columns['SiasamName']] in vec_siasam_ass:
         isWholePlant = True
         association_constraint = AssociationConstraint("assoc-" + siasam_code)
     siasamCounter = 0
@@ -84,9 +84,10 @@ for index, row in df_siasam.iterrows():
     if isWholePlant:
         association_constraints.addConstraint(association_constraint)
 association_constraints.save('siasam_association_constraints.csv')
-irregularity_manager.saveReport('siasam_matching_report')
+irregularity_manager.saveReport('siasam_irregularities_overlap')
 irregularity_manager.saveReport('siasam_irregularities_duplicates', duplicates=True)
 irregularity_manager.saveReport('siasam_irregularities_fixed_duplicates', duplicates=True, fixed=True)
+irregularity_manager.saveReport('siasam_irregularities_fixed_overlap', duplicates=False, fixed=True)
 
 # ALGOTITMO DE ALOCACIÓN DE SOLICITUDES
 print('Optimizando alocación de solicitudes...')
