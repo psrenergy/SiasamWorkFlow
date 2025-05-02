@@ -31,6 +31,7 @@ By default, the script expects the following input files:
 - `01-04Feb-CorrespondenciaCentrales_SDDP_SIASAM.csv`: Mapping between generators for the catalogue and SIASAM data.
 - `Solicitudes SIASAM 2025-2027_17-01-2025.csv`: SIASAM maintenance requests.
 - `solicitudes_minimas.csv`: Catalogue minimum required maintenance requests.
+- `solicitudes_fijas.csv`: SIASAM fixed requests (might overwrite new SIASAM requests if duplicated).
 - `precedencia_solicitudes_minimas.csv`: Precedence constraints for the minimum required maintenance requests.
 
 ### Output Data
