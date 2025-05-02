@@ -31,6 +31,10 @@ solicitudes_minimas_columns = {
     'MaxDateMonth':9,
     'MaxDateYear':10,
     'Duration':11,
+    'Priority':12,
+    'PrefDateDay':13,
+    'PrefDateMonth':14,
+    'PrefDateYear':15,
 }
 
 sddp_tech_codes = {
@@ -79,6 +83,7 @@ class IrregularityManager:
         self.tol_duration = tol_duration
         self.irregularities = []
         self.irregularities_duplicates = []
+        self.irregularities_duplicates_fixed = []
 
     def addIrregularity(self, solicitation1, solicitation2):
         self.irregularities.append([solicitation1, solicitation2])
@@ -86,11 +91,17 @@ class IrregularityManager:
     def addIrregularityDuplicate(self, solicitation1, solicitation2):
         self.irregularities_duplicates.append([solicitation1, solicitation2])
 
-    def saveReport(self, output_file_path, duplicates=False):
-        if duplicates:
+    def addIrregularityDuplicateFixed(self, solicitation1, solicitation2):
+        self.irregularities_duplicates_fixed.append([solicitation1, solicitation2])
+
+    def saveReport(self, output_file_path, duplicates=False, fixed=False):
+        if duplicates and not fixed:
             irregularities = self.irregularities_duplicates
+        elif duplicates and fixed:
+            irregularities = self.irregularities_duplicates_fixed
         else:
             irregularities = self.irregularities
+
         with open(output_file_path + '.txt', 'w') as f:
             f.write("  =====================  INFORME DE COMPATIBILIDAD DE SOLICITUDES SIASAM  =====================\n\n")
             f.write(" Parametros para identificar solicitudes duplicadas:\n")
@@ -151,8 +162,9 @@ class GeneratorUnit:
     def hasSiasamName(self, siasam_name):
         return siasam_name in self.siasam_names
 
-    def addSiasamSolicitation(self, solicitation):
-        for siasamSol in self.siasam_solicitations:
+    def addSiasamSolicitation(self, solicitation, isWholePlant):
+        for isiasamSol in range(len(self.siasam_solicitations)):
+            siasamSol = self.siasam_solicitations[isiasamSol]
             if (
                 abs((siasamSol.preference_date - solicitation.preference_date).days) <= self.irregularity_manager.tol_starting_date
                 and abs(siasamSol.duration - solicitation.duration) <= self.irregularity_manager.tol_duration
@@ -163,8 +175,14 @@ class GeneratorUnit:
                     solicitation.preference_date + datetime.timedelta(days=solicitation.duration - 1)
                     ) > 0
             ):
+                if self.siasam_solicitations[isiasamSol].fixed_date == 1:
+                    self.irregularity_manager.addIrregularityDuplicateFixed(siasamSol, solicitation)
+                    return 1
+                elif isWholePlant:
+                    del self.siasam_solicitations[isiasamSol]
+                    self.siasam_solicitations.append(solicitation)
                 self.irregularity_manager.addIrregularityDuplicate(siasamSol, solicitation)
-                return
+                return 0
             elif (
                 calculate_intersection_days(
                     siasamSol.preference_date,
@@ -175,6 +193,7 @@ class GeneratorUnit:
             ):
                 self.irregularity_manager.addIrregularity(siasamSol, solicitation)
         self.siasam_solicitations.append(solicitation)
+        return 0
 
     def addOriginalSolicitation(self, solicitation):
         self.original_solicitations.append(solicitation)
@@ -204,14 +223,14 @@ class GeneratorUnit:
         return out
 
 class MaintenanceSolicitations:
-    def __init__(self, load_from_file=None):
+    def __init__(self, load_from_file=None, fixed=False):
         self.solicitations = {}
         self.header = """$version=2,,,,,,,,,,,,,,,,,
 !Sname,code   ,type      ,system,Pname       ,Unit,min_date,min_date,min_date,max_date,max_date,max_date,Duration, Priority, Preference Date,Preference Date,Preference Date,Fixed Date
 !       ,       ,0=thermal ,          ,            ,,dd,mm      ,yy      ,dd,mm      ,yy      ,days,,dd,mm      ,yy,
 !       ,       ,1=hidro   ,          ,  ,,,        ,        ,,        ,        ,,,,,,"""
         if load_from_file is not None:
-            self.loadSolicitations(load_from_file)
+            self.loadSolicitations(load_from_file, fixed=fixed)
 
     def saveSolicitations(self, output_file_path):
         with open(output_file_path, 'w') as f:
@@ -238,7 +257,7 @@ class MaintenanceSolicitations:
                 text_line += f"{solicitation.fixed_date}"
                 f.write(text_line)
 
-    def loadSolicitations(self, input_file_path):
+    def loadSolicitations(self, input_file_path, fixed=False):
         # Read the CSV file, skipping the first two header lines
         df = pd.read_csv(input_file_path)
 
@@ -255,21 +274,42 @@ class MaintenanceSolicitations:
                 month=int(row[solicitudes_minimas_columns["MaxDateMonth"]]),
                 day=int(row[solicitudes_minimas_columns["MaxDateDay"]])
             )
+            if not fixed:
+                sol = SolicitationInstance(
+                    solicitation_name=row[solicitudes_minimas_columns["SolicitationName"]],
+                    plant_code=row[solicitudes_minimas_columns["PlantCode"]],
+                    plant_type=int(row[solicitudes_minimas_columns["PlantTech"]]),
+                    system_code=1,
+                    plant_name=row[solicitudes_minimas_columns["PlantName"]],
+                    plant_unit=row[solicitudes_minimas_columns["UnitCode"]],
+                    min_date=min_date,
+                    max_date=max_date,
+                    duration=int(row[solicitudes_minimas_columns["Duration"]]),     
+                    priority=0,
+                    preference_date=None,
+                    fixed_date=0
+                )
+            else:
+                pref_date = datetime.datetime(
+                    year=int(row[solicitudes_minimas_columns["PrefDateYear"]]),
+                    month=int(row[solicitudes_minimas_columns["PrefDateMonth"]]),
+                    day=int(row[solicitudes_minimas_columns["PrefDateDay"]])
+                )
+                sol = SolicitationInstance(
+                    solicitation_name=row[solicitudes_minimas_columns["SolicitationName"]],
+                    plant_code=row[solicitudes_minimas_columns["PlantCode"]],
+                    plant_type=int(row[solicitudes_minimas_columns["PlantTech"]]),
+                    system_code=1,
+                    plant_name=row[solicitudes_minimas_columns["PlantName"]],
+                    plant_unit=row[solicitudes_minimas_columns["UnitCode"]],
+                    min_date=min_date,
+                    max_date=max_date,
+                    duration=int(row[solicitudes_minimas_columns["Duration"]]),     
+                    priority=int(row[solicitudes_minimas_columns["Priority"]]),
+                    preference_date=pref_date,
+                    fixed_date=1,
+                )
 
-            sol = SolicitationInstance(
-                solicitation_name=row[solicitudes_minimas_columns["SolicitationName"]],
-                plant_code=row[solicitudes_minimas_columns["PlantCode"]],
-                plant_type=int(row[solicitudes_minimas_columns["PlantTech"]]),
-                system_code=1,
-                plant_name=row[solicitudes_minimas_columns["PlantName"]],
-                plant_unit=row[solicitudes_minimas_columns["UnitCode"]],
-                min_date=min_date,
-                max_date=max_date,
-                duration=int(row[solicitudes_minimas_columns["Duration"]]),     
-                priority=0,
-                preference_date=None,
-                fixed_date=0
-            )
             self.addSolicitation(sol)
 
     def addSolicitation(self, solicitation):

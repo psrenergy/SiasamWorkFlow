@@ -12,6 +12,9 @@ generator_units = loadGeneratorUnits('01-04Feb-CorrespondenciaCentrales_SDDP_SIA
 print('Cargando solicitudes de mantenimiento originales...')
 originalSolicitations = MaintenanceSolicitations('solicitudes_minimas.csv')
 
+print('Cargando solicitudes de mantenimiento fijas...')
+fixedSolicitations = MaintenanceSolicitations('solicitudes_fijas.csv', fixed=True)
+
 irregularity_manager = IrregularityManager(     # Solicitudes SIASAM muy similares pueden recibir un trato especial, aqui se configura los critérios de identificación de esas solicitudes
     tol_starting_date = 2, # Tolerancia en días para la proximidad de la fecha de inicio
     tol_duration = 2,      # Tolerancia en días para la proximidad de la duración
@@ -23,6 +26,15 @@ for unit in generator_units:
     solicitations = originalSolicitations.getUnitSolicitations(unit)
     for solicitation in solicitations:
         unit.addOriginalSolicitation(solicitation)
+    fixed_solicitations = fixedSolicitations.getUnitSolicitations(unit)
+    for solicitation in fixed_solicitations:
+        unit.addSiasamSolicitation(solicitation, False)
+
+# Leer codigos del siasam que deben generar restricciones de asociacion
+df_siasam_ass = pd.read_csv('siasam_associacion.csv')
+vec_siasam_ass = []
+for index, row in df_siasam_ass.iterrows():
+    vec_siasam_ass.append(row[0])
 
 # Carga las solicitudes de mantenimiento del SIASAM
 print('Cargando solicitudes de mantenimiento del SIASAM...')
@@ -30,7 +42,7 @@ association_constraints = AssociationConstraints()
 df_siasam = pd.read_csv('Solicitudes SIASAM 2025-2027_17-01-2025.csv')
 # Limpia char160
 str_cols = df_siasam.select_dtypes(include=['object']).columns
-df_siasam[str_cols] = df_siasam[str_cols].apply(lambda col: col.str.replace("\xa0", " ", regex=False))
+df_siasam[str_cols] = df_siasam[str_cols].apply(lambda col: col.str.replace(r"[^\x20-\x7E]", "", regex=True))
 for index, row in df_siasam.iterrows():
     siasam_name = row[siasam_columns['SiasamName']]
     siasam_code = row[siasam_columns['SiasamCode']]
@@ -41,7 +53,7 @@ for index, row in df_siasam.iterrows():
     area = siasam_code.split('-')[0]
     siasam_name = area + "-" + siasam_name
     isWholePlant = False
-    if equipType == 'CG':
+    if equipType == 'CG' or row[siasam_columns['SiasamName']] in vec_siasam_ass:
         isWholePlant = True
         association_constraint = AssociationConstraint("assoc-" + siasam_code)
     siasamCounter = 0
@@ -62,17 +74,19 @@ for index, row in df_siasam.iterrows():
                 min_date = datetime.datetime(minDate.year, 1, 1),
                 max_date = datetime.datetime(maxDate.year, 12, 31),
                 priority = 0,
-                preference_date = minDate,
+                preference_date = datetime.datetime(minDate.year, minDate.month, minDate.day),
                 fixed_date = 0
                 )
-            unit.addSiasamSolicitation(solicitation)
-            if isWholePlant:
+            matches_fixed = False
+            status = unit.addSiasamSolicitation(solicitation, isWholePlant)
+            if isWholePlant and status == 0:
                 association_constraint.addSolicitation(solicitation)
     if isWholePlant:
         association_constraints.addConstraint(association_constraint)
 association_constraints.save('siasam_association_constraints.csv')
 irregularity_manager.saveReport('siasam_matching_report')
 irregularity_manager.saveReport('siasam_irregularities_duplicates', duplicates=True)
+irregularity_manager.saveReport('siasam_irregularities_fixed_duplicates', duplicates=True, fixed=True)
 
 # ALGOTITMO DE ALOCACIÓN DE SOLICITUDES
 print('Optimizando alocación de solicitudes...')
@@ -125,7 +139,6 @@ for unit in generator_units:
             unit.addResultSolicitation(solicitation)
         else:
             erased_solicitations.append(originalSolicitation)
-
 print('Guardando resultados...')
 resultsSoliciations = MaintenanceSolicitations()
 for unit in generator_units:
@@ -151,7 +164,7 @@ if os.path.exists('precedencia_solicitudes_minimas.csv'):
                 del precedence_constraint.solicitation_names[i]
                 del precedence_constraint.min_delays[i]
                 del precedence_constraint.max_delays[i]
-    precedence_constraints.save('optmprec_apr.csv')
+    precedence_constraints.save('optmprec.csv')
 
 print('Proceso finalizado.')
 
