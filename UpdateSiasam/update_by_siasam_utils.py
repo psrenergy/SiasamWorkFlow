@@ -37,6 +37,14 @@ solicitudes_minimas_columns = {
     'PrefDateYear':15,
 }
 
+siasam_fijas_columns = {
+    'Area':0,
+    'SolicitationName':3,
+    'UnitName':4,
+    'StartDate':8,
+    'Duration':9,
+}
+
 sddp_tech_codes = {
     'Termica':0,
     'Hidro mayor':1,
@@ -50,7 +58,10 @@ def calculate_intersection_days(start1, end1, start2, end2):
     return max(0, delta)
 
 def round_hour_to_date(date_string):
-    return datetime.datetime.strptime(date_string, "%m/%d/%Y  %H:%M").date()
+    return datetime.datetime.strptime(date_string, "%d/%m/%Y  %H:%M").date()
+
+def str_to_date(date_string):
+    return datetime.datetime.strptime(date_string, "%d/%m/%Y").date()
 
 def loadGeneratorUnits(siasam_name_file):
     generator_units = []
@@ -166,6 +177,11 @@ class GeneratorUnit:
         self.siasam_names.append(siasam_name)
 
     def hasSiasamName(self, siasam_name):
+        if len(siasam_name) > 7 and siasam_name[7:9] == "-U":
+            unit_num = siasam_name[9:]
+            if len(siasam_name[9:]) == 1:
+                unit_num = "0" + siasam_name[9:]
+            siasam_name = siasam_name[:7] + unit_num
         return siasam_name in self.siasam_names
 
     def addSiasamSolicitation(self, solicitation, isWholePlant):
@@ -273,12 +289,12 @@ class MaintenanceSolicitations:
         # Iterate through the rows and recreate SolicitationInstance objects
         for _, row in df.iterrows():
             # Parse dates using datetime
-            min_date = datetime.datetime(
+            min_date = datetime.date(
                 year=int(row.iloc[solicitudes_minimas_columns["MinDateYear"]]),
                 month=int(row.iloc[solicitudes_minimas_columns["MinDateMonth"]]),
                 day=int(row.iloc[solicitudes_minimas_columns["MinDateDay"]])
             )
-            max_date = datetime.datetime(
+            max_date = datetime.date(
                 year=int(row.iloc[solicitudes_minimas_columns["MaxDateYear"]]),
                 month=int(row.iloc[solicitudes_minimas_columns["MaxDateMonth"]]),
                 day=int(row.iloc[solicitudes_minimas_columns["MaxDateDay"]])

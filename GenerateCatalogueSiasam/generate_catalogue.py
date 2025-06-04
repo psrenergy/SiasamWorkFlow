@@ -7,7 +7,7 @@ faltando_catalogo = []
 
 historicalMaintenances = HistoricalMaintenances('historico.csv')
 plantTechs = PlantTechs('tecnologias_plantas.csv')
-catalogue = MaintenanceCatalogue('catalogo_geral_completo.csv', plantTechs)
+catalogue = MaintenanceCatalogue('catalogo_general_completo.csv', plantTechs)
 maintenanceSolicitations = MaintenanceSolicitations()
 precedenceConstraints = PrecedenceConstraints()
 unitCodes = UnitCodes('optmuntcod.csv')

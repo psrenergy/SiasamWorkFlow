@@ -12,8 +12,8 @@ generator_units = loadGeneratorUnits('01-04Feb-CorrespondenciaCentrales_SDDP_SIA
 print('Cargando solicitudes de mantenimiento originales...')
 originalSolicitations = MaintenanceSolicitations('solicitudes_minimas.csv')
 
-print('Cargando solicitudes de mantenimiento fijas...')
-fixedSolicitations = MaintenanceSolicitations('solicitudes_fijas.csv', fixed=True)
+#print('Cargando solicitudes de mantenimiento fijas...')
+#fixedSolicitations = MaintenanceSolicitations('solicitudes_fijas.csv', fixed=True)
 
 irregularity_manager = IrregularityManager(     # Solicitudes SIASAM muy similares pueden recibir un trato especial, aqui se configura los critérios de identificación de esas solicitudes
     tol_starting_date = 2, # Tolerancia en días para la proximidad de la fecha de inicio
@@ -26,9 +26,36 @@ for unit in generator_units:
     solicitations = originalSolicitations.getUnitSolicitations(unit)
     for solicitation in solicitations:
         unit.addOriginalSolicitation(solicitation)
-    fixed_solicitations = fixedSolicitations.getUnitSolicitations(unit)
-    for solicitation in fixed_solicitations:
-        unit.addSiasamSolicitation(solicitation, False)
+
+print('Cargando solicitudes de mantenimiento fijas...')
+df_siasam_fixed = pd.read_csv('solicitudes_siasam_fijas.csv', header=[0, 1])
+# Limpia char160
+str_cols = df_siasam_fixed.select_dtypes(include=['object']).columns
+df_siasam_fixed[str_cols] = df_siasam_fixed[str_cols].apply(lambda col: col.str.replace(r"[^\x20-\x7E]", "", regex=True))
+for index, row in df_siasam_fixed.iterrows():
+    area = row.iloc[siasam_fijas_columns['Area']]
+    solicitationName = row.iloc[siasam_fijas_columns['SolicitationName']]
+    unitName = row.iloc[siasam_fijas_columns['UnitName']]
+    unitName = area + "-" + unitName
+    startDate = str_to_date(row.iloc[siasam_fijas_columns['StartDate']])
+    duration = row.iloc[siasam_fijas_columns['Duration']]
+    for unit in generator_units:
+        if unit.hasSiasamName(unitName):
+            solicitation = SolicitationInstance(
+                solicitation_name = solicitationName,
+                plant_code = unit.plant_code,
+                plant_type = unit.plant_type,
+                system_code = unit.plant_system,
+                plant_name = unit.plant_name,
+                plant_unit = unit.unit,
+                duration = duration,
+                min_date = startDate,
+                max_date = startDate + pd.Timedelta(days=duration),
+                priority = 0,
+                preference_date = startDate,
+                fixed_date = 1
+            )
+            unit.addSiasamSolicitation(solicitation, False)
 
 # Leer codigos del siasam que deben generar restricciones de asociacion
 df_siasam_ass = pd.read_csv('siasam_associacion.csv')
@@ -39,7 +66,7 @@ for index, row in df_siasam_ass.iterrows():
 # Carga las solicitudes de mantenimiento del SIASAM
 print('Cargando solicitudes de mantenimiento del SIASAM...')
 association_constraints = AssociationConstraints()
-df_siasam = pd.read_csv('Solicitudes SIASAM 2025-2027_17-01-2025.csv')
+df_siasam = pd.read_csv('solicitudes_siasam.csv')
 # Limpia char160
 str_cols = df_siasam.select_dtypes(include=['object']).columns
 df_siasam[str_cols] = df_siasam[str_cols].apply(lambda col: col.str.replace(r"[^\x20-\x7E]", "", regex=True))
@@ -71,10 +98,10 @@ for index, row in df_siasam.iterrows():
                 plant_name = unit.plant_name,
                 plant_unit = unit.unit,
                 duration = duration,
-                min_date = datetime.datetime(minDate.year, 1, 1),
-                max_date = datetime.datetime(maxDate.year, 12, 31),
+                min_date = datetime.date(minDate.year, 1, 1),
+                max_date = datetime.date(maxDate.year, 12, 31),
                 priority = 0,
-                preference_date = datetime.datetime(minDate.year, minDate.month, minDate.day),
+                preference_date = datetime.date(minDate.year, minDate.month, minDate.day),
                 fixed_date = 0
                 )
             matches_fixed = False

@@ -8,7 +8,7 @@ The **GenerateCatalogueSiasam** routine aims to generate an estimate for future 
 
 ### Input Data
 By default, the script expects the following input files:
-- `catalogo_geral_completo.csv`: Maintenance requirements by technology or plant.
+- `catalogo_general_completo.csv`: Maintenance requirements by technology or plant.
 - `historico.csv`: Maintenance history data by plant.
 - `plantas_para_catalogo.csv`: List of plants to generate solicitations for (and their relevant info).
 - `tecnologias_plantas.csv`: plant tecnologies by SIASAM name convention.
@@ -29,9 +29,9 @@ The **UpdateSiasam** module aims to reconcile the minimum theoretical maintenanc
 ### Input Data
 By default, the script expects the following input files:
 - `01-04Feb-CorrespondenciaCentrales_SDDP_SIASAM.csv`: Mapping between generators for the catalogue and SIASAM data.
-- `Solicitudes SIASAM 2025-2027_17-01-2025.csv`: SIASAM maintenance requests.
+- `solicitudes_siasam.csv`: SIASAM maintenance requests.
 - `solicitudes_minimas.csv`: Catalogue minimum required maintenance requests.
-- `solicitudes_fijas.csv`: SIASAM fixed requests (might overwrite new SIASAM requests if duplicated).
+- `solicitudes_siasam_fijas.csv`: SIASAM fixed requests (might overwrite new SIASAM requests if duplicated).
 - `precedencia_solicitudes_minimas.csv`: Precedence constraints for the minimum required maintenance requests.
 
 ### Output Data
