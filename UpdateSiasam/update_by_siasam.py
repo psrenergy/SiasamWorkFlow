@@ -110,6 +110,9 @@ for index, row in df_siasam.iterrows():
                 association_constraint.addSolicitation(solicitation)
     if isWholePlant:
         association_constraints.addConstraint(association_constraint)
+# Durante el proceso de eliminación de solicitudes irregulares, algunas que se eliminan ya tienen restricciones de 
+# asociación definidas previamente, por lo que ahora limpiamos la casa antes de guardar las restricciones:
+association_constraints.filterBySolicitations(generator_units)    # Limpia las restricciones de asociación que no tienen solicitudes asociadas
 association_constraints.save('siasam_association_constraints.csv')
 irregularity_manager.saveReport('siasam_irregularities_overlap')
 irregularity_manager.saveReport('siasam_irregularities_duplicates', duplicates=True)

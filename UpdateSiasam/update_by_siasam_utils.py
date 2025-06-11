@@ -411,9 +411,9 @@ class SolicitationInstance:
 class AssociationConstraint:
     def __init__(self, name):
         self.name = name
-        self.solitations = []
+        self.solicitation = []
     def addSolicitation(self, solicitation):
-        self.solitations.append(solicitation)
+        self.solicitation.append(solicitation)
 
 class AssociationConstraints:
 
@@ -426,9 +426,21 @@ class AssociationConstraints:
         with open(output_file_path, 'w') as f:
             f.write(self.header)
             for constraint in self.constraints:
-                if len(constraint.solitations) > 1:
-                    for solicitation in constraint.solitations:
+                if len(constraint.solicitation) > 1:
+                    for solicitation in constraint.solicitation:
                         f.write(f"\n{constraint.name},{solicitation.solicitation_name}")
+    def filterBySolicitations(self,generator_units):
+        existing_solicitations = []
+        for unit in generator_units:
+            for solicitation in unit.siasam_solicitations:
+                existing_solicitations.append(solicitation.solicitation_name)
+            for solicitation in unit.original_solicitations:
+                existing_solicitations.append(solicitation.solicitation_name)
+        for i in range(len(self.constraints)-1,-1,-1):
+            constraint = self.constraints[i]
+            for solicitation in constraint.solicitation:
+                if solicitation.solicitation_name not in existing_solicitations:
+                    del self.constraints[i]
 
 class PrecedenceConstraint:
     def __init__(self, name):
