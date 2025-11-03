@@ -249,6 +249,7 @@ class GeneratorUnit:
 
 class MaintenanceSolicitations:
     def __init__(self, load_from_file=None, fixed=False):
+        self.solicitations_name_count = {}
         self.solicitations = {}
         self.header = """$version=2,,,,,,,,,,,,,,,,,
 !Sname,code   ,type      ,system,Pname       ,Unit,min_date,min_date,min_date,max_date,max_date,max_date,Duration, Priority, Preference Date,Preference Date,Preference Date,Fixed Date
@@ -338,6 +339,9 @@ class MaintenanceSolicitations:
             self.addSolicitation(sol)
 
     def addSolicitation(self, solicitation):
+        if solicitation.solicitation_name in self.solicitations_name_count:
+            self.solicitations_name_count[solicitation.solicitation_name] += 1
+            solicitation.solicitation_name += f"_{self.solicitations_name_count[solicitation.solicitation_name]}"
         self.solicitations[solicitation.solicitation_name] = solicitation
 
     def addSolicitations(self, solicitations):
