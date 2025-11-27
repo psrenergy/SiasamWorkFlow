@@ -32,6 +32,7 @@ df_siasam_fixed = pd.read_csv('solicitudes_siasam_fijas.csv', header=[0, 1])
 # Limpia char160
 str_cols = df_siasam_fixed.select_dtypes(include=['object']).columns
 df_siasam_fixed[str_cols] = df_siasam_fixed[str_cols].apply(lambda col: col.str.replace(r"[^\x20-\x7E]", "", regex=True))
+siasamCounterDict = {}
 for index, row in df_siasam_fixed.iterrows():
     area = row.iloc[siasam_fijas_columns['Area']]
     solicitationName = row.iloc[siasam_fijas_columns['SolicitationName']]
@@ -39,10 +40,16 @@ for index, row in df_siasam_fixed.iterrows():
     unitName = area + "-" + unitName
     startDate = str_to_date(row.iloc[siasam_fijas_columns['StartDate']])
     duration = row.iloc[siasam_fijas_columns['Duration']]
+    if solicitationName not in siasamCounterDict:
+        siasamCounterDict[solicitationName] = 0
     for unit in generator_units:
         if unit.hasSiasamName(unitName):
+            siasamCounterDict[solicitationName] += 1
+            siasamFinalCode = solicitationName
+            if siasamCounterDict[solicitationName] > 1:
+                siasamFinalCode = siasamFinalCode + "-s" + str(siasamCounterDict[solicitationName])
             solicitation = SolicitationInstance(
-                solicitation_name = solicitationName,
+                solicitation_name = siasamFinalCode,
                 plant_code = unit.plant_code,
                 plant_type = unit.plant_type,
                 system_code = unit.plant_system,
@@ -89,7 +96,7 @@ for index, row in df_siasam.iterrows():
             siasamCounter+=1
             siasamFinalCode = siasam_code
             if siasamCounter > 1:
-                siasamFinalCode = siasamFinalCode + "-" + str(siasamCounter)
+                siasamFinalCode = siasamFinalCode + "-s" + str(siasamCounter)
             solicitation = SolicitationInstance(
                 solicitation_name = siasamFinalCode,
                 plant_code = unit.plant_code,
