@@ -339,17 +339,16 @@ class UnitCodes:
                 file_values = line.split(',')
                 plant_name = file_values[0]
                 plant_type = int(file_values[1])
-                plant_system = int(file_values[2])
                 num_units = int(file_values[3])
                 unit_codes = [int(unit) for unit in file_values[4:]]
-                self.unit_codes[(plant_name, plant_type, plant_system)] = {
+                self.unit_codes[(plant_name, plant_type)] = {
                     'num_units': num_units,
                     'unit_codes': unit_codes
                 }
-    def hasUnitCodes(self, plant_name, plant_type, plant_system):
-        return (plant_name, plant_type, plant_system) in self.unit_codes
-    def hasValidUnitCodes(self, plant_name, plant_type, plant_system, num_units):
-        return num_units == self.unit_codes[(plant_name, plant_type, plant_system)]['num_units']
-    def getUnitCode(self, plant_name, plant_type, plant_system, num_unit):
-        return self.unit_codes[(plant_name, plant_type, plant_system)]['unit_codes'][num_unit - 1]
+    def hasUnitCodes(self, plant_name, plant_type):
+        return (plant_name, plant_type) in self.unit_codes
+    def hasValidUnitCodes(self, plant_name, plant_type, num_units):
+        return num_units == self.unit_codes[(plant_name, plant_type)]['num_units']
+    def getUnitCode(self, plant_name, plant_type, num_unit):
+        return self.unit_codes[(plant_name, plant_type)]['unit_codes'][num_unit - 1]
         

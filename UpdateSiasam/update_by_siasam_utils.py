@@ -63,7 +63,7 @@ def round_hour_to_date(date_string):
 def str_to_date(date_string):
     return datetime.datetime.strptime(date_string, "%d/%m/%Y").date()
 
-def loadGeneratorUnits(siasam_name_file):
+def loadGeneratorUnits(siasam_name_file, system_code):
     generator_units = []
     df_siasam_name = pd.read_csv(siasam_name_file)
     for index, row in df_siasam_name.iterrows():
@@ -83,7 +83,7 @@ def loadGeneratorUnits(siasam_name_file):
                 unit_is_defined = True
                 break
         if not unit_is_defined:
-            unit = GeneratorUnit(1, unit_plant_name, unit_plant_code, sddp_tech_codes[unit_plant_type], unit_num)
+            unit = GeneratorUnit(system_code, unit_plant_name, unit_plant_code, sddp_tech_codes[unit_plant_type], unit_num)
             generator_units.append(unit)
         unit.addSiasamName(unit_siasam_name)
     return generator_units

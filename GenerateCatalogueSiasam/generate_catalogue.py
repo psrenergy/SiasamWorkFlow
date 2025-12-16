@@ -3,8 +3,8 @@ import csv
 
 FIRST_YEAR = 2025
 NUMBER_OF_YEARS = 3
-faltando_catalogo = []
 
+faltando_catalogo = []
 historicalMaintenances = HistoricalMaintenances('historico.csv')
 plantTechs = PlantTechs('tecnologias_plantas.csv')
 catalogue = MaintenanceCatalogue('catalogo_general_completo.csv', plantTechs)
@@ -18,7 +18,6 @@ for index, row in df_plants.iterrows():
     plant_name = row['Nome']
     plant_type = row['Tipo']
     plant_code = row['Codigo']
-    system_code = 1
     number_units = int(row['Unidades'])
     catalogueRules = catalogue.getCatalogueRules(plant_name)
     if catalogueRules is None:
@@ -26,9 +25,9 @@ for index, row in df_plants.iterrows():
         faltando_catalogo.append(plant_name)
         continue
     for unit in range(1, number_units + 1):
-        if unitCodes.hasUnitCodes(plant_name, plant_type, system_code):
-            if unitCodes.hasValidUnitCodes(plant_name, plant_type, system_code, number_units):
-                unit = unitCodes.getUnitCode(plant_name, plant_type, system_code, unit)
+        if unitCodes.hasUnitCodes(plant_name, plant_type):
+            if unitCodes.hasValidUnitCodes(plant_name, plant_type, number_units):
+                unit = unitCodes.getUnitCode(plant_name, plant_type, unit)
             else:
                 print(f"Aviso: Planta {plant_name} esta en el archivo de codigos de unidades pero no lo numero de unidades no coincide")
         count_sol = 1
@@ -44,7 +43,7 @@ for index, row in df_plants.iterrows():
                     f"CAT{count_sol}-n{count_prec}-{plant_name}-U{unit}",
                     plant_code,
                     plant_type,
-                    system_code,
+                    None,
                     plant_name,
                     unit,
                     ajust_date_lower(next_date_min),

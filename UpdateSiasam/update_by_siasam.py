@@ -4,9 +4,11 @@ import networkx as nx
 import copy
 import os
 
+SYSTEM_CODE = 7
+
 # Leer archivo que va a correlacionar los nombres de las plantas en el SIASAM con el SDDP
 print('Cargando correspondencia de centrales...')
-generator_units = loadGeneratorUnits('01-04Feb-CorrespondenciaCentrales_SDDP_SIASAM.csv')
+generator_units = loadGeneratorUnits('01-04Feb-CorrespondenciaCentrales_SDDP_SIASAM.csv', SYSTEM_CODE)
 
 # Carga las solicitudes de mantenimiento originales
 print('Cargando solicitudes de mantenimiento originales...')
