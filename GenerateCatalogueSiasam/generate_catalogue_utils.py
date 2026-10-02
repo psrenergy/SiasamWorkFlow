@@ -2,6 +2,13 @@ import datetime
 import pandas as pd
 from tqdm import tqdm
 
+def load_execution_options(file_path):
+    df = pd.read_csv(file_path, dtype=str)
+    options = {}
+    for index, row in df.iterrows():
+        options[row['Name']] = int(row['Value']) if row['Type'] == 'Integer' else row['Value']
+    return options
+
 def round_hour_to_date(date_string):
     return datetime.datetime.strptime(date_string, "%m/%d/%Y  %H:%M").date()
 

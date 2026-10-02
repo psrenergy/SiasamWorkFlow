@@ -1,6 +1,13 @@
 import datetime
 import pandas as pd
 
+def load_execution_options(file_path):
+    df = pd.read_csv(file_path, dtype=str)
+    options = {}
+    for index, row in df.iterrows():
+        options[row['Name']] = int(row['Value']) if row['Type'] == 'Integer' else row['Value']
+    return options
+
 siasam_name_columns = {
     'Code':0,
     'Name':1,
@@ -50,6 +57,22 @@ sddp_tech_codes = {
     'Hidro mayor':1,
     'Hidro menor':6,
 }
+
+# SDDP plant type code -> PSRClasses classType, used to build the OptMain plant reference
+plant_class_types = {
+    0:16,  # PSRThermalPlant
+    1:17,  # PSRHydroPlant
+    6:39,  # PSRGndPlant
+}
+
+# PSR_Date 0: how PSRClasses serializes an unset date. OptMain reads it as "not informed".
+NULL_DATE = "30/11/1899"
+
+def plant_reference(plant_code, plant_name, system_id, plant_type):
+    return f"{plant_code}-{str(plant_name).strip()}-{system_id}-{plant_class_types[plant_type]}"
+
+def date_to_str(date):
+    return date.strftime("%d/%m/%Y") if date is not None else NULL_DATE
 
 def calculate_intersection_days(start1, end1, start2, end2):
     intersection_start = max(start1, start2)
@@ -248,42 +271,32 @@ class GeneratorUnit:
         return out
 
 class MaintenanceSolicitations:
-    def __init__(self, load_from_file=None, fixed=False):
+    def __init__(self, load_from_file=None, fixed=False, system_code=1):
         self.solicitations_name_count = {}
         self.solicitations = {}
-        self.header = """$version=2,,,,,,,,,,,,,,,,,
-!Sname,code   ,type      ,system,Pname       ,Unit,min_date,min_date,min_date,max_date,max_date,max_date,Duration, Priority, Preference Date,Preference Date,Preference Date,Fixed Date
-!       ,       ,0=thermal ,          ,            ,,dd,mm      ,yy      ,dd,mm      ,yy      ,days,,dd,mm      ,yy,
-!       ,       ,1=hidro   ,          ,  ,,,        ,        ,,        ,        ,,,,,,"""
+        self.header = """$version=3
+!Name,UnitCode,MinDate,MaxDate,Duration,PrefDate,Score,Fix,Plant"""
         if load_from_file is not None:
-            self.loadSolicitations(load_from_file, fixed=fixed)
+            self.loadSolicitations(load_from_file, fixed=fixed, system_code=system_code)
 
-    def saveSolicitations(self, output_file_path):
+    def saveSolicitations(self, output_file_path, system_id):
         with open(output_file_path, 'w') as f:
             f.write(self.header)
             for key in self.solicitations:
                 solicitation = self.solicitations[key]
                 text_line = f"\n{solicitation.solicitation_name},"
-                text_line += f"{solicitation.plant_code},"
-                text_line += f"{solicitation.plant_type},"
-                text_line += f"{solicitation.system_code},"
-                text_line += f"{solicitation.plant_name},"
                 text_line += f"{solicitation.plant_unit},"
-                text_line += f"{solicitation.min_date.day},"
-                text_line += f"{solicitation.min_date.month},"
-                text_line += f"{solicitation.min_date.year},"
-                text_line += f"{solicitation.max_date.day},"
-                text_line += f"{solicitation.max_date.month},"
-                text_line += f"{solicitation.max_date.year},"
+                text_line += f"{date_to_str(solicitation.min_date)},"
+                text_line += f"{date_to_str(solicitation.max_date)},"
                 text_line += f"{solicitation.duration},"
+                text_line += f"{date_to_str(solicitation.preference_date)},"
                 text_line += f"{solicitation.priority},"
-                text_line += f"{solicitation.preference_date.day}," if solicitation.preference_date is not None else "0,"
-                text_line += f"{solicitation.preference_date.month}," if solicitation.preference_date is not None else "0,"
-                text_line += f"{solicitation.preference_date.year}," if solicitation.preference_date is not None else "0,"
-                text_line += f"{solicitation.fixed_date}"
+                text_line += f"{solicitation.fixed_date},"
+                text_line += plant_reference(solicitation.plant_code, solicitation.plant_name,
+                                             system_id, solicitation.plant_type)
                 f.write(text_line)
 
-    def loadSolicitations(self, input_file_path, fixed=False):
+    def loadSolicitations(self, input_file_path, fixed=False, system_code=1):
         # Read the CSV file, skipping the first two header lines
         df = pd.read_csv(input_file_path)
 
@@ -305,7 +318,7 @@ class MaintenanceSolicitations:
                     solicitation_name=row.iloc[solicitudes_minimas_columns["SolicitationName"]],
                     plant_code=row.iloc[solicitudes_minimas_columns["PlantCode"]],
                     plant_type=int(row.iloc[solicitudes_minimas_columns["PlantTech"]]),
-                    system_code=1,
+                    system_code=system_code,
                     plant_name=row.iloc[solicitudes_minimas_columns["PlantName"]],
                     plant_unit=row.iloc[solicitudes_minimas_columns["UnitCode"]],
                     min_date=min_date,
@@ -325,7 +338,7 @@ class MaintenanceSolicitations:
                     solicitation_name=row.iloc[solicitudes_minimas_columns["SolicitationName"]],
                     plant_code=row.iloc[solicitudes_minimas_columns["PlantCode"]],
                     plant_type=int(row.iloc[solicitudes_minimas_columns["PlantTech"]]),
-                    system_code=1,
+                    system_code=system_code,
                     plant_name=row.iloc[solicitudes_minimas_columns["PlantName"]],
                     plant_unit=row.iloc[solicitudes_minimas_columns["UnitCode"]],
                     min_date=min_date,
@@ -423,16 +436,19 @@ class AssociationConstraints:
 
     def __init__(self):
         self.constraints = []
-        self.header = "!SetName,SolicitationName"
+        self.header = "$version=2\n!SetName"
+        self.vectors_header = "$version=1\n!PSRMaintenanceAssociation,Solicitations"
     def addConstraint(self, constraint):
         self.constraints.append(constraint)
-    def save(self, output_file_path):
-        with open(output_file_path, 'w') as f:
+    def save(self, output_file_path, vectors_file_path):
+        with open(output_file_path, 'w') as f, open(vectors_file_path, 'w') as fv:
             f.write(self.header)
+            fv.write(self.vectors_header)
             for constraint in self.constraints:
                 if len(constraint.solicitation) > 1:
+                    f.write(f"\n{constraint.name}")
                     for solicitation in constraint.solicitation:
-                        f.write(f"\n{constraint.name},{solicitation.solicitation_name}")
+                        fv.write(f"\n{constraint.name},{solicitation.solicitation_name}")
     def filterBySolicitations(self,generator_units):
         existing_solicitations = []
         for unit in generator_units:
@@ -461,13 +477,17 @@ class PrecedenceConstraints:
         def __init__(self):
             self.constraints = []
             self.header = "!PrecName,SolName,DelayMin,DelayMax"
-        def save(self, output_file_path):
-            with open(output_file_path, 'w') as f:
-                f.write(self.header)
+            self.out_header = "$version=2\n!PrecName"
+            self.out_vectors_header = "$version=1\n!PSRMaintenancePrecedence,DelayMin,DelayMax,Solicitations"
+        def save(self, output_file_path, vectors_file_path):
+            with open(output_file_path, 'w') as f, open(vectors_file_path, 'w') as fv:
+                f.write(self.out_header)
+                fv.write(self.out_vectors_header)
                 for constraint in self.constraints:
                     if len(constraint.solicitation_names) > 1:
+                        f.write(f"\n{constraint.name}")
                         for i in range(len(constraint.solicitation_names)):
-                            f.write(f"\n{constraint.name},{constraint.solicitation_names[i]},{constraint.min_delays[i]},{constraint.max_delays[i]}")
+                            fv.write(f"\n{constraint.name},{constraint.min_delays[i]},{constraint.max_delays[i]},{constraint.solicitation_names[i]}")
         def load(self, input_file_path):
             df = pd.read_csv(input_file_path)
             for _, row in df.iterrows():

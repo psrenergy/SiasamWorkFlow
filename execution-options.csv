@@ -1,0 +1,5 @@
+Name,Value,Script,Type,Description
+FIRST_YEAR,2025,generate_catalogue.py,Integer,First year of the maintenance planning horizon
+NUMBER_OF_YEARS,3,generate_catalogue.py,Integer,Length of the maintenance planning horizon in years
+SYSTEM_CODE,1,update_by_siasam.py,Integer,SDDP code of the system the plants belong to
+SYSTEM_ID,si,update_by_siasam.py,Text,SDDP identifier of the system the plants belong to used in the OptMain plant reference

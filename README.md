@@ -37,8 +37,8 @@ By default, the script expects the following input files:
 ### Output Data
 The program generates the following output files:
 - `optmcfg.csv`: **Merged** maintenance requests.
-- `optmprec.csv`: **Merged** precedence constraints.
-- `siasam_association_constraints.csv`: **New** association constraints to append to any existing ones.
+- `optmprec.csv` and `optmprecv.csv`: **Merged** precedence constraints.
+- `siasam_association_constraints.csv` and `siasam_association_constraints_v.csv`: **New** association constraints to append to any existing ones.
 - `siasam_irregularities_fixed_duplicates.txt`: A report listing matching cases of duplicated fixed requests.
 - `siasam_irregularities_fixed_overlap.txt`: A report listing matching cases of overlapping fixed requests.
 - `siasam_irregularities_duplicates.txt`: A report listing matching cases of duplicated requests.

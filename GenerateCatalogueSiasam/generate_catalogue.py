@@ -1,8 +1,9 @@
 from generate_catalogue_utils import *
 import csv
 
-FIRST_YEAR = 2025
-NUMBER_OF_YEARS = 3
+options = load_execution_options('../execution-options.csv')
+FIRST_YEAR = options['FIRST_YEAR']
+NUMBER_OF_YEARS = options['NUMBER_OF_YEARS']
 
 faltando_catalogo = []
 historicalMaintenances = HistoricalMaintenances('historico.csv')

@@ -4,7 +4,9 @@ import networkx as nx
 import copy
 import os
 
-SYSTEM_CODE = 7
+options = load_execution_options('../execution-options.csv')
+SYSTEM_CODE = options['SYSTEM_CODE']
+SYSTEM_ID = options['SYSTEM_ID']
 
 # Leer archivo que va a correlacionar los nombres de las plantas en el SIASAM con el SDDP
 print('Cargando correspondencia de centrales...')
@@ -12,7 +14,7 @@ generator_units = loadGeneratorUnits('01-04Feb-CorrespondenciaCentrales_SDDP_SIA
 
 # Carga las solicitudes de mantenimiento originales
 print('Cargando solicitudes de mantenimiento originales...')
-originalSolicitations = MaintenanceSolicitations('solicitudes_minimas.csv')
+originalSolicitations = MaintenanceSolicitations('solicitudes_minimas.csv', system_code=SYSTEM_CODE)
 
 #print('Cargando solicitudes de mantenimiento fijas...')
 #fixedSolicitations = MaintenanceSolicitations('solicitudes_fijas.csv', fixed=True)
@@ -122,7 +124,7 @@ for index, row in df_siasam.iterrows():
 # Durante el proceso de eliminación de solicitudes irregulares, algunas que se eliminan ya tienen restricciones de 
 # asociación definidas previamente, por lo que ahora limpiamos la casa antes de guardar las restricciones:
 association_constraints.filterBySolicitations(generator_units)    # Limpia las restricciones de asociación que no tienen solicitudes asociadas
-association_constraints.save('siasam_association_constraints.csv')
+association_constraints.save('siasam_association_constraints.csv', 'siasam_association_constraints_v.csv')
 irregularity_manager.saveReport('siasam_irregularities_overlap')
 irregularity_manager.saveReport('siasam_irregularities_duplicates', duplicates=True)
 irregularity_manager.saveReport('siasam_irregularities_fixed_duplicates', duplicates=True, fixed=True)
@@ -183,7 +185,7 @@ print('Guardando resultados...')
 resultsSoliciations = MaintenanceSolicitations()
 for unit in generator_units:
     resultsSoliciations.addSolicitations(unit.result_soliciations)
-resultsSoliciations.saveSolicitations('optmcfg.csv')
+resultsSoliciations.saveSolicitations('optmcfg.csv', SYSTEM_ID)
 
 if os.path.exists('precedencia_solicitudes_minimas.csv'):
     precedence_constraints = PrecedenceConstraints()
@@ -204,7 +206,7 @@ if os.path.exists('precedencia_solicitudes_minimas.csv'):
                 del precedence_constraint.solicitation_names[i]
                 del precedence_constraint.min_delays[i]
                 del precedence_constraint.max_delays[i]
-    precedence_constraints.save('optmprec.csv')
+    precedence_constraints.save('optmprec.csv', 'optmprecv.csv')
 
 print('Proceso finalizado.')
 
